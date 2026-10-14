@@ -46,6 +46,8 @@ model GuestSession {
   id          String       @id @default(uuid()) @db.Uuid
   tokenHash   String       @unique
   displayName String
+  /// [body colour, eyes, mouth] indices, 0-63 each.
+  avatar      Int[]        @default([0, 0, 0])
   createdAt   DateTime     @default(now())
   expiresAt   DateTime
   memberships Membership[]

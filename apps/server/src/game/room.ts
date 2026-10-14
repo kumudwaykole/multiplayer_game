@@ -11,6 +11,7 @@ import {
   ServerEvents,
   type CanvasChunkPayload,
   type ChatMessage,
+  type Avatar,
   type GameResult,
   type GuessStatus,
   type Phase,
@@ -62,6 +63,7 @@ interface Member {
   id: string;
   sessionId: string;
   name: string;
+  avatar: Avatar;
   joinedAt: number;
   status: 'active' | 'left';
   presence: Presence;
@@ -77,6 +79,7 @@ interface GamePlayerState {
   gamePlayerId: string;
   membershipId: string;
   name: string;
+  avatar: Avatar;
   score: number;
 }
 
@@ -184,6 +187,7 @@ export class RoomRuntime {
         id: stored.id,
         sessionId: stored.sessionId,
         name: stored.displayName,
+        avatar: stored.avatar,
         joinedAt: stored.joinedAt.getTime(),
         status: stored.status === 'ACTIVE' ? 'active' : 'left',
         presence: 'offline',
@@ -245,12 +249,15 @@ export class RoomRuntime {
   // --------------------------------------------------------------- commands
 
   /** HTTP join: creates or restores membership. The member is "connecting" until a socket subscribes. */
-  join(sessionId: string, displayName: string): Promise<{ playerId: string }> {
+  join(sessionId: string, displayName: string, avatar: Avatar = [0, 0, 0]): Promise<{ playerId: string }> {
     return this.queue.run(async () => {
       this.assertOpen();
       let member = this.memberBySession(sessionId);
       if (member && member.status === 'active' && member.presence !== 'offline') {
+        const changed = member.name !== displayName || member.avatar.join() !== avatar.join();
         member.name = displayName;
+        member.avatar = avatar;
+        if (changed) this.broadcastState('player:updated');
         return { playerId: member.id };
       }
       if (this.presentMembers().length >= this.settings.maxPlayers) {
@@ -262,6 +269,7 @@ export class RoomRuntime {
           id: record.id,
           sessionId,
           name: displayName,
+          avatar,
           joinedAt: record.joinedAt.getTime(),
           status: 'active',
           presence: 'offline',
@@ -274,6 +282,7 @@ export class RoomRuntime {
       }
       member.status = 'active';
       member.name = displayName;
+      member.avatar = avatar;
       await this.enterGrace(member);
       this.cancelIdle();
       await this.ensureHost();
@@ -392,7 +401,7 @@ export class RoomRuntime {
       const players = new Map<string, GamePlayerState>();
       for (const p of created.players) {
         const m = this.members.get(p.membershipId)!;
-        players.set(m.id, { gamePlayerId: p.gamePlayerId, membershipId: m.id, name: m.name, score: 0 });
+        players.set(m.id, { gamePlayerId: p.gamePlayerId, membershipId: m.id, name: m.name, avatar: m.avatar, score: 0 });
       }
       this.game = {
         id: created.gameId,
@@ -938,7 +947,13 @@ export class RoomRuntime {
       displayName: member.name,
       rosterPosition: game.nextRosterPosition++,
     });
-    game.players.set(member.id, { gamePlayerId, membershipId: member.id, name: member.name, score: 0 });
+    game.players.set(member.id, {
+      gamePlayerId,
+      membershipId: member.id,
+      name: member.name,
+      avatar: member.avatar,
+      score: 0,
+    });
   }
 
   private scheduleIdle(): void {
@@ -1045,6 +1060,7 @@ export class RoomRuntime {
       return {
         id: m.id,
         name: game?.players.get(m.id)?.name ?? m.name,
+        avatar: m.avatar,
         isHost: m.id === this.hostId,
         connected: m.presence === 'online',
         present: m.status === 'active' && m.presence !== 'offline',
@@ -1130,7 +1146,7 @@ export class RoomRuntime {
 
   private ranking(game: GameState): GameResult['ranking'] {
     return rankPlayers(
-      [...game.players.values()].map((p) => ({ playerId: p.membershipId, name: p.name, score: p.score })),
+      [...game.players.values()].map((p) => ({ playerId: p.membershipId, name: p.name, avatar: p.avatar, score: p.score })),
     );
   }
 

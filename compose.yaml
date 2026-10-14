@@ -55,5 +55,18 @@ services:
     stop_grace_period: 35s
     restart: unless-stopped
 
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      # Local only by default. For LAN play set WEB_BIND=0.0.0.0 and add the
+      # LAN address to ALLOWED_ORIGINS (e.g. http://192.168.1.20:8080).
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8080}:8080"
+    depends_on:
+      server:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   postgres_data:

@@ -98,9 +98,13 @@ export type TurnEndReason =
   | 'SERVER_RESTART'
   | 'PERSISTENCE_FAILURE';
 
+/** [body colour, eyes, mouth]; the client maps each index onto its artwork. */
+export type Avatar = [number, number, number];
+
 export interface PublicPlayer {
   id: string;
   name: string;
+  avatar: Avatar;
   isHost: boolean;
   /** Has a live socket right now. */
   connected: boolean;
@@ -141,7 +145,7 @@ export interface TurnResult {
 export interface GameResult {
   gameId: string;
   status: 'FINISHED' | 'INTERRUPTED';
-  ranking: Array<{ playerId: string; name: string; score: number; rank: number }>;
+  ranking: Array<{ playerId: string; name: string; avatar: Avatar; score: number; rank: number }>;
 }
 
 export interface PublicRoomState {

@@ -1,0 +1,256 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ tokens */
+
+@theme {
+  --font-sans: "Nunito Variable", ui-rounded, "Segoe UI", system-ui, sans-serif;
+
+  /* Page */
+  --color-sky: #1f4fd1;
+  --color-sky-deep: #12308f;
+  --color-ink: #1d1f2b;
+  --color-muted: #6b7086;
+
+  /* Panels */
+  --color-panel: #ffffff;
+  --color-panel-alt: #ececf4;
+  --color-line: #d6d8e6;
+
+  /* Actions */
+  --color-play: #53e237;
+  --color-play-dark: #2fae18;
+  --color-brand: #2c8de7;
+  --color-brand-dark: #1a69bf;
+  --color-danger: #ef4a3f;
+  --color-danger-dark: #b8291f;
+  --color-sun: #ffcc1f;
+
+  /* Game feedback */
+  --color-guessed: #8eea70;
+  --color-guessed-ink: #238c0d;
+  --color-close: #c99a00;
+  --color-drawing: #2f6fd8;
+  --color-leave: #d4500f;
+  --color-overlay: rgb(9 16 46 / 0.78);
+
+  --radius-panel: 0.85rem;
+  --shadow-panel: 0 4px 0 rgb(0 0 0 / 0.22);
+  --shadow-button: 0 4px 0 var(--btn-shade, rgb(0 0 0 / 0.3));
+
+  --animate-pop: pop 260ms cubic-bezier(0.2, 1.4, 0.4, 1);
+  --animate-rise: rise 320ms ease-out;
+  --animate-wiggle: wiggle 1.4s ease-in-out infinite;
+
+  @keyframes pop {
+    from { transform: scale(0.7); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  @keyframes rise {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(-6deg); }
+    50% { transform: rotate(6deg); }
+  }
+}
+
+/* -------------------------------------------------------------------- base */
+
+@layer base {
+  html {
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    min-height: 100dvh;
+    margin: 0;
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size-adjust: from-font;
+    -webkit-font-smoothing: antialiased;
+    background-color: var(--color-sky);
+    /* Doodle wallpaper: a single inline SVG tile, no network request. */
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260' fill='none' stroke='white' stroke-opacity='.09' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M34 30l7 14 15 2-11 10 3 15-14-7-13 7 2-15-11-10 15-2z'/%3E%3Ccircle cx='190' cy='44' r='17'/%3E%3Cpath d='M118 118c11-15 23-15 32 0s21 15 32 0'/%3E%3Cpath d='M38 168l44-44 13 13-44 44-18 5z'/%3E%3Crect x='186' y='172' width='32' height='32' rx='4' transform='rotate(14 202 188)'/%3E%3Cpath d='M92 226c0-11 17-11 17 0s17 11 17 0'/%3E%3Cpath d='M216 108l12 12m0-12l-12 12'/%3E%3Cpath d='M124 40q16-22 32 0t32 0'/%3E%3Ccircle cx='28' cy='238' r='6'/%3E%3C/svg%3E"),
+      radial-gradient(120% 90% at 50% 0%, var(--color-sky) 0%, var(--color-sky-deep) 100%);
+    background-attachment: fixed;
+  }
+
+  button,
+  [role="button"],
+  select,
+  input[type="checkbox"] {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-sun);
+    outline-offset: 2px;
+  }
+
+  dialog:modal {
+    overscroll-behavior: contain;
+  }
+
+  dialog::backdrop {
+    overflow: hidden;
+    overscroll-behavior: contain;
+    background: rgb(5 10 35 / 0.6);
+    backdrop-filter: blur(2px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 1ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 1ms !important;
+    }
+  }
+}
+
+/* -------------------------------------------------------------- components */
+
+@layer components {
+  .panel {
+    background: var(--color-panel);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-panel);
+  }
+
+  /* Chunky game buttons with a darker "lip" that sinks on press. */
+  .btn {
+    --btn-bg: var(--color-panel-alt);
+    --btn-shade: var(--color-line);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.1rem;
+    border-radius: 0.7rem;
+    font-weight: 800;
+    color: var(--btn-fg, var(--color-ink));
+    background: var(--btn-bg);
+    box-shadow: var(--shadow-button);
+    transition: transform 80ms ease, box-shadow 80ms ease, filter 120ms ease;
+    user-select: none;
+  }
+  .btn:hover:not(:disabled) {
+    filter: brightness(1.06);
+  }
+  .btn:active:not(:disabled) {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 var(--btn-shade);
+  }
+  .btn:disabled {
+    filter: grayscale(0.6);
+    opacity: 0.6;
+  }
+  .btn-play {
+    --btn-bg: var(--color-play);
+    --btn-shade: var(--color-play-dark);
+    --btn-fg: #fff;
+    text-shadow: 0 2px 0 rgb(0 0 0 / 0.25);
+  }
+  .btn-brand {
+    --btn-bg: var(--color-brand);
+    --btn-shade: var(--color-brand-dark);
+    --btn-fg: #fff;
+    text-shadow: 0 2px 0 rgb(0 0 0 / 0.2);
+  }
+  .btn-danger {
+    --btn-bg: var(--color-danger);
+    --btn-shade: var(--color-danger-dark);
+    --btn-fg: #fff;
+  }
+
+  .field {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    border-radius: 0.6rem;
+    border: 2px solid var(--color-line);
+    background: #fff;
+    font-weight: 700;
+    color: var(--color-ink);
+    transition: border-color 120ms ease;
+  }
+  .field:focus {
+    border-color: var(--color-brand);
+    outline: none;
+  }
+  .field:disabled {
+    background: var(--color-panel-alt);
+    color: var(--color-muted);
+  }
+
+  /* Outlined, multicoloured title letters. */
+  .logo-letter {
+    display: inline-block;
+    font-weight: 900;
+    line-height: 1;
+    -webkit-text-stroke: 0.16em #131313;
+    paint-order: stroke fill;
+    text-shadow: 0 0.08em 0 #131313;
+  }
+
+  /* --------------------------------------------------------- game layout */
+
+  /*
+   * Mobile first: top bar, canvas, toolbar, then players and chat side by
+   * side underneath (the way the original game works on phones).
+   */
+  .game-layout {
+    display: grid;
+    gap: 0.5rem;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "top top"
+      "board board"
+      "tools tools"
+      "players chat";
+    grid-template-rows: auto auto auto minmax(16rem, 1fr);
+  }
+
+  @media (width >= 64rem) {
+    .game-layout {
+      grid-template-columns: 13.5rem minmax(0, 1fr) 18.5rem;
+      grid-template-areas:
+        "top top top"
+        "players board chat"
+        "players tools chat";
+      grid-template-rows: auto auto 1fr;
+    }
+  }
+
+  .area-top { grid-area: top; }
+  .area-board { grid-area: board; }
+  .area-tools { grid-area: tools; }
+  .area-players { grid-area: players; }
+  .area-chat { grid-area: chat; }
+
+  /* The board keeps its 10:7 shape and never grows taller than the viewport allows. */
+  .board-frame {
+    aspect-ratio: 10 / 7;
+    width: 100%;
+    max-width: calc((100dvh - 9.5rem) * 10 / 7);
+    margin-inline: auto;
+  }
+
+  @media (width >= 64rem) {
+    .board-frame {
+      max-width: calc((100dvh - 14.25rem) * 10 / 7);
+    }
+  }
+
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line) transparent;
+  }
+}

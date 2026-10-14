@@ -72,6 +72,7 @@ export class MemoryRepository implements GameRepository {
       id: randomUUID(),
       sessionId,
       displayName: sessionId,
+      avatar: [0, 0, 0],
       // Strictly increasing so join order is deterministic.
       joinedAt: new Date(Date.UTC(2026, 0, 1) + this.members.size * 1000),
       status: 'ACTIVE',

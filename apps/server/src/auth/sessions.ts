@@ -7,10 +7,20 @@ export const SESSION_COOKIE = 'dg_sid';
 export const CSRF_COOKIE = 'dg_csrf';
 export const CSRF_HEADER = 'x-csrf-token';
 
+export type Avatar = [number, number, number];
+
 export interface GuestSession {
   id: string;
   displayName: string;
+  avatar: Avatar;
   expiresAt: Date;
+}
+
+const SELECT = { id: true, displayName: true, avatar: true, expiresAt: true } as const;
+
+function toSession(row: { id: string; displayName: string; avatar: number[]; expiresAt: Date }): GuestSession {
+  const [a = 0, b = 0, c = 0] = row.avatar;
+  return { id: row.id, displayName: row.displayName, avatar: [a, b, c], expiresAt: row.expiresAt };
 }
 
 /**
@@ -24,43 +34,41 @@ export class SessionService {
     private readonly ttlMs: number,
   ) {}
 
-  async create(displayName: string): Promise<{ token: string; session: GuestSession }> {
+  async create(displayName: string, avatar: Avatar): Promise<{ token: string; session: GuestSession }> {
     const token = randomToken();
-    const session = await this.prisma.guestSession.create({
-      data: { tokenHash: hashToken(token), displayName, expiresAt: new Date(Date.now() + this.ttlMs) },
-      select: { id: true, displayName: true, expiresAt: true },
+    const row = await this.prisma.guestSession.create({
+      data: { tokenHash: hashToken(token), displayName, avatar, expiresAt: new Date(Date.now() + this.ttlMs) },
+      select: SELECT,
     });
-    return { token, session };
+    return { token, session: toSession(row) };
   }
 
   async findByToken(token: string | undefined): Promise<GuestSession | null> {
     if (!token || token.length > 128) return null;
-    const session = await this.prisma.guestSession.findUnique({
-      where: { tokenHash: hashToken(token) },
-      select: { id: true, displayName: true, expiresAt: true },
-    });
-    if (!session || session.expiresAt.getTime() <= Date.now()) return null;
-    return session;
+    const row = await this.prisma.guestSession.findUnique({ where: { tokenHash: hashToken(token) }, select: SELECT });
+    if (!row || row.expiresAt.getTime() <= Date.now()) return null;
+    return toSession(row);
   }
 
-  async rename(sessionId: string, displayName: string): Promise<GuestSession> {
-    return this.prisma.guestSession.update({
+  async update(sessionId: string, displayName: string, avatar: Avatar): Promise<GuestSession> {
+    const row = await this.prisma.guestSession.update({
       where: { id: sessionId },
-      data: { displayName },
-      select: { id: true, displayName: true, expiresAt: true },
+      data: { displayName, avatar },
+      select: SELECT,
     });
+    return toSession(row);
   }
 
   /** Returns a new token when the session was rotated, otherwise null. */
   async rotateIfAging(session: GuestSession): Promise<{ token: string; session: GuestSession } | null> {
     if (session.expiresAt.getTime() - Date.now() > this.ttlMs / 2) return null;
     const token = randomToken();
-    const updated = await this.prisma.guestSession.update({
+    const row = await this.prisma.guestSession.update({
       where: { id: session.id },
       data: { tokenHash: hashToken(token), expiresAt: new Date(Date.now() + this.ttlMs) },
-      select: { id: true, displayName: true, expiresAt: true },
+      select: SELECT,
     });
-    return { token, session: updated };
+    return { token, session: toSession(row) };
   }
 }
 

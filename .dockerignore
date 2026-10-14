@@ -8,3 +8,5 @@
 apps/server/src/generated
 docs
 *.log
+**/test-results
+**/playwright-report

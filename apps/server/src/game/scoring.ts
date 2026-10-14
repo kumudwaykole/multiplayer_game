@@ -21,12 +21,8 @@ export interface RankInput {
   score: number;
 }
 
-export interface Ranked extends RankInput {
-  rank: number;
-}
-
 /** Equal scores share a rank (1, 2, 2, 4). Name then ID only orders the display. */
-export function rankPlayers(players: readonly RankInput[]): Ranked[] {
+export function rankPlayers<T extends RankInput>(players: readonly T[]): Array<T & { rank: number }> {
   const sorted = [...players].sort(
     (a, b) =>
       b.score - a.score ||

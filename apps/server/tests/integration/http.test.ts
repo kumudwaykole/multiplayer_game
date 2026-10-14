@@ -38,10 +38,14 @@ describe('sessions and request protection', () => {
     const badOrigin = await client.request('POST', '/api/session', { displayName: 'Ana' }, { origin: 'https://evil.example' });
     expect(badOrigin.body.code).toBe('ORIGIN_REJECTED');
 
-    const created = await client.request('POST', '/api/session', { displayName: '  Ana  ' });
+    const created = await client.request('POST', '/api/session', { displayName: '  Ana  ', avatar: [3, 7, 1] });
     expect(created.status).toBe(201);
     expect(client.cookies.get('dg_sid')).toBeTruthy();
-    expect((await client.request('GET', '/api/session')).body.session).toEqual({ name: 'Ana' });
+    expect((await client.request('GET', '/api/session')).body.session).toEqual({ name: 'Ana', avatar: [3, 7, 1] });
+
+    expect((await client.request('POST', '/api/session', { displayName: 'Ana', avatar: [99, 0, 0] })).status).toBe(400);
+    const renamed = await client.request('POST', '/api/session', { displayName: 'Ana B' });
+    expect(renamed.body.session).toEqual({ name: 'Ana B', avatar: [3, 7, 1] });
   });
 
   it('rejects unknown fields, markup in names and malformed JSON', async () => {

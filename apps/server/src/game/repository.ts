@@ -7,6 +7,7 @@ export interface StoredMember {
   id: string;
   sessionId: string;
   displayName: string;
+  avatar: [number, number, number];
   joinedAt: Date;
   status: 'ACTIVE' | 'LEFT';
   recoveryExpiresAt: Date | null;

@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
-import { setSessionCookie, type SessionService } from '../auth/sessions.js';
+import { setSessionCookie, type GuestSession, type SessionService } from '../auth/sessions.js';
 import type { Config } from '../config/env.js';
 import type { RoomManager } from '../game/roomManager.js';
 import { DEFAULT_SETTINGS, settingsInputSchema, validateSettings } from '../game/settings.js';
@@ -68,25 +68,29 @@ export function createRouter(deps: RouteDeps): Router {
   // --------------------------------------------------------------- session
   router.get('/session', (_req, res) => {
     const session = res.locals.session;
-    res.json({ session: session ? { name: session.displayName } : null, csrfToken: res.locals.csrfToken });
+    res.json({ session: session ? publicSession(session) : null, csrfToken: res.locals.csrfToken });
   });
 
-  const sessionBody = z.strictObject({ displayName: z.string().max(100) });
+  const avatarPart = z.number().int().min(0).max(63);
+  const sessionBody = z.strictObject({
+    displayName: z.string().max(100),
+    avatar: z.tuple([avatarPart, avatarPart, avatarPart]).optional(),
+  });
 
   router.post('/session', rateLimit(limits.sessionIp, (req) => clientKey(req)), async (req, res) => {
-    const { displayName } = sessionBody.parse(req.body);
+    const { displayName, avatar } = sessionBody.parse(req.body);
     const name = cleanName(displayName);
     if (!name) throw new AppError('BAD_REQUEST', 'Names must be 1-24 characters of plain text');
     const existing = res.locals.session;
     if (existing) {
-      const updated = await sessions.rename(existing.id, name);
-      res.json({ session: { name: updated.displayName }, csrfToken: res.locals.csrfToken });
+      const updated = await sessions.update(existing.id, name, avatar ?? existing.avatar);
+      res.json({ session: publicSession(updated), csrfToken: res.locals.csrfToken });
       return;
     }
-    const { token, session } = await sessions.create(name);
+    const { token, session } = await sessions.create(name, avatar ?? [0, 0, 0]);
     setSessionCookie(res, token, config.cookieSecure, session.expiresAt);
     deps.metrics.inc('sessions_created');
-    res.status(201).json({ session: { name: session.displayName }, csrfToken: res.locals.csrfToken });
+    res.status(201).json({ session: publicSession(session), csrfToken: res.locals.csrfToken });
   });
 
   // ----------------------------------------------------------------- rooms
@@ -101,7 +105,7 @@ export function createRouter(deps: RouteDeps): Router {
       const code = await createRoomRecord(prisma, session.id);
       const room = await rooms.get(code);
       if (!room) throw new AppError('INTERNAL', 'Room could not be opened');
-      const { playerId } = await room.join(session.id, session.displayName);
+      const { playerId } = await room.join(session.id, session.displayName, session.avatar);
       deps.metrics.inc('rooms_created');
       res.status(201).json({
         code,
@@ -120,7 +124,7 @@ export function createRouter(deps: RouteDeps): Router {
       const session = requireSession(res);
       if (deps.isDraining()) throw new AppError('SERVER_DRAINING', 'Server is restarting, try again shortly');
       const room = await requireRoom(rooms, req.params.code);
-      const { playerId } = await room.join(session.id, session.displayName);
+      const { playerId } = await room.join(session.id, session.displayName, session.avatar);
       res.json({ playerId, state: room.summaryFor(session.id)?.state ?? null });
     },
   );
@@ -169,6 +173,10 @@ export function createRouter(deps: RouteDeps): Router {
   });
 
   return router;
+}
+
+function publicSession(session: GuestSession) {
+  return { name: session.displayName, avatar: session.avatar };
 }
 
 async function requireRoom(rooms: RoomManager, code: string | string[] | undefined) {
