@@ -1,4 +1,4 @@
 /node_modules
-/docs
-*.md
-!README.md
+
+# Planning notes stay local. Deliverables in docs/ (technical note, demo notes) are committed.
+/docs/IMPLEMENTATION_PLAN.md

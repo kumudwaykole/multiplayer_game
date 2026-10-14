@@ -1,0 +1,193 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RoomStatus {
+  OPEN
+  CLOSED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  LEFT
+}
+
+enum GameStatus {
+  IN_PROGRESS
+  FINISHED
+  INTERRUPTED
+}
+
+enum TurnStatus {
+  CHOOSING
+  DRAWING
+  ENDED
+}
+
+enum TurnEndReason {
+  TIME_UP
+  ALL_GUESSED
+  DRAWER_DISCONNECTED
+  DRAWER_LEFT
+  NO_GUESSERS
+  NOT_ENOUGH_PLAYERS
+  SERVER_RESTART
+  PERSISTENCE_FAILURE
+}
+
+model GuestSession {
+  id          String       @id @default(uuid()) @db.Uuid
+  tokenHash   String       @unique
+  displayName String
+  createdAt   DateTime     @default(now())
+  expiresAt   DateTime
+  memberships Membership[]
+
+  @@index([expiresAt])
+  @@map("guest_sessions")
+}
+
+model Room {
+  id               String       @id @default(uuid()) @db.Uuid
+  code             String       @unique
+  // Plain column (no FK) to avoid a Room <-> Membership reference cycle.
+  hostMembershipId String?      @db.Uuid
+  status           RoomStatus   @default(OPEN)
+  // Private host configuration, including any custom word list.
+  settings         Json
+  settingsVersion  Int          @default(0)
+  createdAt        DateTime     @default(now())
+  idleExpiresAt    DateTime?
+  memberships      Membership[]
+  games            Game[]
+
+  @@index([status, idleExpiresAt])
+  @@map("rooms")
+}
+
+model Membership {
+  id                String           @id @default(uuid()) @db.Uuid
+  roomId            String           @db.Uuid
+  sessionId         String           @db.Uuid
+  joinedAt          DateTime         @default(now())
+  status            MembershipStatus @default(ACTIVE)
+  recoveryExpiresAt DateTime?
+  room              Room             @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  session           GuestSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  gamePlayers       GamePlayer[]
+
+  @@unique([roomId, sessionId])
+  @@index([roomId])
+  @@index([sessionId])
+  @@index([recoveryExpiresAt])
+  @@map("memberships")
+}
+
+model Game {
+  id        String       @id @default(uuid()) @db.Uuid
+  roomId    String       @db.Uuid
+  // Frozen copy of the host settings and word-list version for this game.
+  settings  Json
+  status    GameStatus   @default(IN_PROGRESS)
+  startedAt DateTime     @default(now())
+  endedAt   DateTime?
+  room      Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  players   GamePlayer[]
+  turns     Turn[]
+
+  @@index([roomId, startedAt])
+  @@index([status, endedAt])
+  @@map("games")
+}
+
+model GamePlayer {
+  id             String       @id @default(uuid()) @db.Uuid
+  gameId         String       @db.Uuid
+  membershipId   String       @db.Uuid
+  // Name at the time of the game, so results survive later renames.
+  displayName    String
+  score          Int          @default(0)
+  rosterPosition Int
+  joinedAt       DateTime     @default(now())
+  game           Game         @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  membership     Membership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  drawnTurns     Turn[]
+  awards         GuessAward[]
+
+  @@unique([gameId, membershipId])
+  @@index([membershipId])
+  @@map("game_players")
+}
+
+model Turn {
+  id               String             @id @db.Uuid
+  gameId           String             @db.Uuid
+  roundIndex       Int
+  turnIndex        Int
+  drawerId         String             @db.Uuid
+  // Private: never returned while the turn is active.
+  candidates       Json
+  answer           String?
+  status           TurnStatus
+  endReason        TurnEndReason?
+  startedAt        DateTime
+  drawingStartedAt DateTime?
+  deadline         DateTime?
+  durationMs       Int?
+  endedAt          DateTime?
+  finalCanvasSeq   Int?
+  game             Game               @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  drawer           GamePlayer         @relation(fields: [drawerId], references: [id], onDelete: Cascade)
+  awards           GuessAward[]
+  operations       DrawingOperation[]
+  finalization     TurnFinalization?
+
+  @@unique([gameId, turnIndex])
+  @@index([status])
+  @@index([drawerId])
+  @@map("turns")
+}
+
+model GuessAward {
+  id           String     @id @default(uuid()) @db.Uuid
+  turnId       String     @db.Uuid
+  gamePlayerId String     @db.Uuid
+  receivedAt   DateTime
+  points       Int
+  turn         Turn       @relation(fields: [turnId], references: [id], onDelete: Cascade)
+  gamePlayer   GamePlayer @relation(fields: [gamePlayerId], references: [id], onDelete: Cascade)
+
+  @@unique([turnId, gamePlayerId])
+  @@index([gamePlayerId])
+  @@map("guess_awards")
+}
+
+model DrawingOperation {
+  turnId    String @db.Uuid
+  canvasSeq Int
+  commandId String
+  actionId  String
+  elapsedMs Int
+  payload   Json
+  turn      Turn   @relation(fields: [turnId], references: [id], onDelete: Cascade)
+
+  @@id([turnId, canvasSeq])
+  @@unique([turnId, commandId])
+  @@map("drawing_operations")
+}
+
+model TurnFinalization {
+  turnId       String   @id @db.Uuid
+  finalizedAt  DateTime @default(now())
+  drawerPoints Int
+  turn         Turn     @relation(fields: [turnId], references: [id], onDelete: Cascade)
+
+  @@map("turn_finalizations")
+}

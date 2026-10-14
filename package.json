@@ -1,15 +1,23 @@
 {
-  "name": "Multiplayer-Game",
+  "name": "multiplayer-game",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "private": true,
   "packageManager": "pnpm@10.34.4",
+  "scripts": {
+    "dev": "pnpm db:up && turbo run dev",
+    "dev:server": "pnpm db:up && pnpm --filter server dev",
+    "dev:web": "pnpm --filter web dev",
+    "db:up": "docker compose -f compose.yaml -f compose.dev.yaml up -d --wait db",
+    "db:stop": "docker compose -f compose.yaml -f compose.dev.yaml stop db",
+    "start": "docker compose up --build",
+    "stop": "docker compose down",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "test:integration": "pnpm --filter server test:integration",
+    "load": "pnpm --filter server load"
+  },
   "devDependencies": {
     "turbo": "^2.11.7"
   }

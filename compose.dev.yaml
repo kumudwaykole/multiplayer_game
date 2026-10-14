@@ -1,0 +1,8 @@
+# Development override: publishes PostgreSQL on localhost so `pnpm dev`
+# can run the server on the host with hot reload.
+#   docker compose -f compose.yaml -f compose.dev.yaml up -d db
+# Port 5434 avoids a locally installed PostgreSQL on 5432 and Hyper-V reserved ranges.
+services:
+  db:
+    ports:
+      - "127.0.0.1:${DB_DEV_PORT:-5434}:5432"
